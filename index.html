@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>RetroLens – portal filter dengan gerakan tangan</title>
+  <meta name="description" content="Bentangkan dua tangan di depan kamera untuk membuka portal filter real-time. Berjalan sepenuhnya di browser.">
+  <meta name="theme-color" content="#1c1024">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖐️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <h1>RetroLens</h1>
+      <p>Bentangkan dua tangan, buka portal, lihat dunia lewat filter.</p>
+    </header>
+
+    <section class="viewfinder" id="stage" aria-label="Tampilan kamera">
+      <canvas id="view" width="960" height="540" aria-label="Hasil kamera dengan filter portal"></canvas>
+      <video id="cam" playsinline muted hidden></video>
+
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+      <div class="hud" id="hud" hidden>
+        <span><b>Filter</b> <output id="hudFilter">dual-tone</output></span>
+        <span><b>Mode</b> <output id="hudMode">2D</output></span>
+      </div>
+
+      <div class="overlay" id="overlay">
+        <div class="overlay-card">
+          <p id="status" role="status">Kamera dipakai langsung di browser kamu. Video tidak dikirim ke mana pun.</p>
+          <button class="primary" id="startBtn" type="button">Nyalakan kamera</button>
+        </div>
+      </div>
+    </section>
+
+    <nav class="controls" aria-label="Kontrol filter" id="controls" hidden>
+      <button type="button" id="prevBtn" aria-label="Filter sebelumnya" title="Filter sebelumnya (P)">‹</button>
+      <div class="chips" id="chips" role="listbox" aria-label="Daftar filter"></div>
+      <button type="button" id="nextBtn" aria-label="Filter berikutnya" title="Filter berikutnya (N)">›</button>
+      <span class="sep"></span>
+      <button type="button" id="modeBtn" title="Ganti mode 2D/3D (C)">Mode 3D</button>
+      <button type="button" id="shotBtn" title="Simpan screenshot (S)">Screenshot</button>
+      <button type="button" id="stopBtn" title="Matikan kamera (Q)">Matikan</button>
+    </nav>
+
+    <section class="guide">
+      <h2>Cara pakai</h2>
+      <dl>
+        <div><dt>Buka portal</dt><dd>Bentangkan kedua tangan, ujung jari membentuk bidang portal.</dd></div>
+        <div><dt>Ganti filter</dt><dd>Satukan ujung jempol dan kelingking (pinch).</dd></div>
+        <div><dt>Ganti mode 2D/3D</dt><dd>Kepalkan kedua tangan sekaligus, atau tekan C.</dd></div>
+        <div><dt>Pintasan</dt><dd>N filter berikutnya, P sebelumnya, S screenshot, Q matikan kamera.</dd></div>
+      </dl>
+    </section>
+
+    <footer>
+      <p>Dibuat sambil belajar OpenCV dan MediaPipe. MIT License.</p>
+    </footer>
+  </main>
+
+  <script src="vendor/mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.js"></script>
+  <script src="js/filters.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/visitor-tracker.js"></script>
+</body>
+</html>

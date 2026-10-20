@@ -1,0 +1,12 @@
+{
+  "name": "retrolens",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check api/**/*.js"
+  },
+  "dependencies": {
+    "cloudinary": "^2.5.1",
+    "postgres": "^3.4.5"
+  }
+}
