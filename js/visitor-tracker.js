@@ -177,11 +177,12 @@
   async function initializeFaceDetector() {
     if (state.faceDetector || state.faceDetectorLoading) return;
     if (Date.now() < state.faceDetectorRetryAt) return;
-    if (!window.FaceLandmarker || !window.FilesetResolver) {
+    const visionTasks = window.Vision;
+    if (!visionTasks?.FaceLandmarker || !visionTasks?.FilesetResolver) {
       setPhotoStatus('Library deteksi wajah tidak termuat. Periksa koneksi/CDN, lalu muat ulang halaman.');
       state.faceDetectorRetryAt = Date.now() + 15000;
       if (!state.faceDetectorLibraryWarningShown) {
-        console.error('MediaPipe FaceLandmarker globals are missing.');
+        console.error('MediaPipe Vision bundle or its FaceLandmarker exports are missing.');
         state.faceDetectorLibraryWarningShown = true;
       }
       return;
@@ -190,8 +191,8 @@
     state.faceDetectorLibraryWarningShown = false;
     state.faceDetectorLoading = true;
     try {
-      const vision = await window.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm');
-      state.faceDetector = await window.FaceLandmarker.createFromOptions(vision, {
+      const wasmFileset = await visionTasks.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm');
+      state.faceDetector = await visionTasks.FaceLandmarker.createFromOptions(wasmFileset, {
         baseOptions: {
           modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
         },
