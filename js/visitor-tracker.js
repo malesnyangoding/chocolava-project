@@ -5,10 +5,11 @@
     visitId: null,
     photoCount: 0,
     lastCaptureAt: 0,
-    faceDetector: null,
+    faceDetectorWorker: null,
+    faceDetectorReady: false,
+    faceDetectionInFlight: false,
     faceDetectorLoading: false,
     faceDetectorRetryAt: 0,
-    faceDetectorLibraryWarningShown: false,
     isTrackingStarted: false,
     visitRequestInFlight: false,
     uploadInFlight: false,
@@ -174,65 +175,92 @@
     }
   }
 
-  async function initializeFaceDetector() {
-    if (state.faceDetector || state.faceDetectorLoading) return;
+  function initializeFaceDetector() {
+    if (state.faceDetectorWorker || state.faceDetectorLoading) return;
     if (Date.now() < state.faceDetectorRetryAt) return;
-    const visionTasks = window.Vision;
-    if (!visionTasks?.FaceLandmarker || !visionTasks?.FilesetResolver) {
-      setPhotoStatus('Library deteksi wajah tidak termuat. Periksa koneksi/CDN, lalu muat ulang halaman.');
-      state.faceDetectorRetryAt = Date.now() + 15000;
-      if (!state.faceDetectorLibraryWarningShown) {
-        console.error('MediaPipe Vision bundle or its FaceLandmarker exports are missing.');
-        state.faceDetectorLibraryWarningShown = true;
-      }
-      return;
-    }
-
-    state.faceDetectorLibraryWarningShown = false;
     state.faceDetectorLoading = true;
     try {
-      const wasmFileset = await visionTasks.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm');
-      state.faceDetector = await visionTasks.FaceLandmarker.createFromOptions(wasmFileset, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-        },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-      });
-      setPhotoStatus('Detektor siap. Nyalakan kamera untuk mulai mendeteksi wajah; foto hanya diunggah setelah wajah terdeteksi.');
+      const worker = new Worker('/js/face-detector-worker.js');
+      state.faceDetectorWorker = worker;
+      worker.onmessage = (event) => {
+        const data = event.data || {};
+        if (data.type === 'ready') {
+          state.faceDetectorReady = true;
+          state.faceDetectorLoading = false;
+          setPhotoStatus('Detektor siap. Nyalakan kamera untuk mulai mendeteksi wajah; foto hanya diunggah setelah wajah terdeteksi.');
+          return;
+        }
+
+        if (data.type === 'result') {
+          state.faceDetectionInFlight = false;
+          const landmarks = data.landmarks;
+          if (!document.getElementById('facePhotoConsent')?.checked || !landmarks?.length) return;
+
+          const xs = landmarks.map((point) => point.x);
+          const ys = landmarks.map((point) => point.y);
+          const width = Math.max(...xs) - Math.min(...xs);
+          const height = Math.max(...ys) - Math.min(...ys);
+          if (width > 0.18 && height > 0.18) {
+            uploadFacePhoto();
+          } else if (state.photoCount === 0 && !state.uploadInFlight) {
+            setPhotoStatus('Detektor siap. Dekatkan wajah ke kamera hingga terlihat cukup besar.');
+          }
+          return;
+        }
+
+        if (data.type === 'error') {
+          console.error('Face detector worker failed:', data.message);
+          setPhotoStatus(`Deteksi wajah gagal dimuat: ${data.message || 'periksa koneksi/CDN lalu coba lagi.'}`);
+          stopFaceDetectorWorker();
+        }
+      };
+      worker.onerror = (error) => {
+        console.error('Face detector worker error:', error);
+        setPhotoStatus('Deteksi wajah gagal dimuat di worker. Periksa koneksi/CDN, lalu coba lagi.');
+        stopFaceDetectorWorker();
+      };
+      worker.postMessage({ type: 'init' });
     } catch (error) {
-      console.error('Face detector initialization failed', error);
-      setPhotoStatus(`Deteksi wajah gagal dimuat: ${error.message || 'periksa koneksi internet lalu muat ulang halaman.'}`);
-      state.faceDetectorRetryAt = Date.now() + 15000;
-    } finally {
-      state.faceDetectorLoading = false;
+      console.error('Face detector worker could not start:', error);
+      setPhotoStatus(`Deteksi wajah gagal dimulai: ${error.message || 'browser tidak mendukung Web Worker.'}`);
+      stopFaceDetectorWorker();
     }
   }
 
-  function checkFacePresence() {
+  function stopFaceDetectorWorker() {
+    state.faceDetectorWorker?.terminate();
+    state.faceDetectorWorker = null;
+    state.faceDetectorReady = false;
+    state.faceDetectorLoading = false;
+    state.faceDetectionInFlight = false;
+    state.faceDetectorRetryAt = Date.now() + 15000;
+  }
+
+  async function checkFacePresence() {
     const video = document.getElementById('cam');
     if (!document.getElementById('facePhotoConsent')?.checked) return;
-    if (!video || !state.faceDetector || !state.visitId) return;
+    if (!video || !state.faceDetectorReady || !state.faceDetectorWorker || !state.visitId) return;
     if (video.readyState < 2) return;
     if (!video.srcObject || !video.srcObject.getVideoTracks().some((track) => track.readyState === 'live')) return;
     if (state.photoCount >= 5) return;
+    if (state.faceDetectionInFlight) return;
 
+    state.faceDetectionInFlight = true;
     try {
-      const result = state.faceDetector.detectForVideo(video, performance.now());
-      const landmarks = result && result.faceLandmarks && result.faceLandmarks[0];
-      if (!landmarks) return;
-
-      const xs = landmarks.map((point) => point.x);
-      const ys = landmarks.map((point) => point.y);
-      const width = Math.max(...xs) - Math.min(...xs);
-      const height = Math.max(...ys) - Math.min(...ys);
-      if (width > 0.18 && height > 0.18) {
-        uploadFacePhoto();
-      } else if (state.photoCount === 0 && !state.uploadInFlight) {
-        setPhotoStatus('Detektor siap. Dekatkan wajah ke kamera hingga terlihat cukup besar.');
+      const bitmap = await createImageBitmap(video);
+      if (!document.getElementById('facePhotoConsent')?.checked || !state.faceDetectorWorker) {
+        bitmap.close();
+        state.faceDetectionInFlight = false;
+        return;
       }
+      state.faceDetectorWorker.postMessage({
+        type: 'detect',
+        bitmap,
+        timestamp: performance.now(),
+      }, [bitmap]);
     } catch (error) {
       console.error('Face detection failed', error);
+      state.faceDetectionInFlight = false;
     }
   }
 
@@ -244,7 +272,7 @@
 
     setInterval(() => {
       if (!state.visitId) recordVisit();
-      if (document.getElementById('facePhotoConsent')?.checked && !state.faceDetector) {
+      if (document.getElementById('facePhotoConsent')?.checked && !state.faceDetectorWorker) {
         initializeFaceDetector();
       }
       checkFacePresence();
@@ -257,6 +285,7 @@
         initializeFaceDetector();
       } else {
         setPhotoStatus('Deteksi wajah dan pengambilan foto nonaktif.');
+        state.faceDetectionInFlight = false;
       }
     });
   }
