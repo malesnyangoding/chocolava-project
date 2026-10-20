@@ -35,8 +35,14 @@ export async function ensureSchema(sql) {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       visit_id UUID NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
       photo_url TEXT NOT NULL,
+      cloudinary_public_id TEXT,
       captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       source TEXT DEFAULT 'camera'
     );
+  `;
+
+  await sql`
+    ALTER TABLE visit_photos
+    ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
   `;
 }
