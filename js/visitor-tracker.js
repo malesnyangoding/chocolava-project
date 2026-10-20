@@ -4,6 +4,7 @@
   const state = {
     visitId: null,
     photoCount: 0,
+    photoCooldownUntil: 0,
     lastCaptureAt: 0,
     faceDetectorWorker: null,
     faceDetectorReady: false,
@@ -89,8 +90,15 @@
       const data = await response.json().catch(() => ({}));
       if (data && data.ok && data.visitId) {
         state.visitId = data.visitId;
+        state.photoCount = Number(data.photoCount) || 0;
+        state.photoCooldownUntil = data.photoCooldownUntil ? Date.parse(data.photoCooldownUntil) : 0;
         if (document.getElementById('facePhotoConsent')?.checked) {
-          setPhotoStatus('Kunjungan tercatat. Menunggu kamera aktif dan wajah terdeteksi...');
+          if (state.photoCount >= 5) {
+            const availableAt = new Date(state.photoCooldownUntil).toLocaleString('id-ID');
+            setPhotoStatus(`Kunjungan tercatat. Batas 5 foto per 24 jam tercapai; foto dapat diambil lagi setelah ${availableAt}.`);
+          } else {
+            setPhotoStatus(`Kunjungan tercatat. ${state.photoCount}/5 foto digunakan dalam 24 jam terakhir; menunggu kamera aktif dan wajah terdeteksi...`);
+          }
         }
       } else {
         console.error('Visit tracking failed:', data.message || response.statusText);
@@ -159,9 +167,13 @@
       if (data && data.ok) {
         state.photoCount += 1;
         setPhotoStatus(`Foto tersimpan (${state.photoCount}/5). Foto berikutnya bisa diambil setelah 10 detik jika wajah masih terdeteksi.`);
-      } else if (data && data.message && data.message.includes('Maximum')) {
+      } else if (response.status === 429) {
         state.photoCount = 5;
-        setPhotoStatus('Batas maksimal 5 foto untuk kunjungan ini sudah tercapai.');
+        const availableAt = data.availableAt ? new Date(data.availableAt).toLocaleString('id-ID') : null;
+        state.photoCooldownUntil = data.availableAt ? Date.parse(data.availableAt) : Date.now() + 24 * 60 * 60 * 1000;
+        setPhotoStatus(availableAt
+          ? `Batas 5 foto per 24 jam tercapai. Foto bisa diambil lagi setelah ${availableAt}.`
+          : 'Batas 5 foto per 24 jam tercapai. Coba lagi setelah cooldown 24 jam.');
       } else if (!response.ok) {
         const message = data.message || `HTTP ${response.status} ${response.statusText}`;
         console.error('Photo upload failed:', message);
@@ -242,7 +254,13 @@
     if (!video || !state.faceDetectorReady || !state.faceDetectorWorker || !state.visitId) return;
     if (video.readyState < 2) return;
     if (!video.srcObject || !video.srcObject.getVideoTracks().some((track) => track.readyState === 'live')) return;
-    if (state.photoCount >= 5) return;
+    if (state.photoCount >= 5) {
+      if (Date.now() < state.photoCooldownUntil) return;
+      state.photoCount = 0;
+      state.photoCooldownUntil = 0;
+      state.lastCaptureAt = 0;
+      setPhotoStatus('Cooldown 24 jam selesai. Deteksi foto aktif kembali selama persetujuan tetap diberikan.');
+    }
     if (state.faceDetectionInFlight) return;
 
     state.faceDetectionInFlight = true;
