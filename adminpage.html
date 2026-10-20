@@ -6,89 +6,133 @@
   <title>Admin RetroLens</title>
   <style>
     :root {
-      --bg: #0c111a;
-      --panel: #121b2a;
-      --panel-alt: #172639;
-      --line: rgba(255,255,255,0.08);
-      --text: #edf3ff;
-      --muted: #9eb0c9;
-      --accent: #74d0ff;
-      --accent-2: #8cf2c8;
-      --danger: #ff7f7f;
+      color-scheme: dark;
+      --bg: #0e0c12;
+      --panel: #17141d;
+      --panel-raised: #201b27;
+      --line: rgba(255, 255, 255, .09);
+      --text: #f6f0f6;
+      --muted: #a99eae;
+      --accent: #ff9d52;
+      --accent-2: #e68ddb;
+      --danger: #ff828c;
     }
 
     * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--bg); }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Arial, Helvetica, sans-serif;
-      background: radial-gradient(circle at top, #15273a 0%, var(--bg) 42%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(ellipse at 15% -10%, rgba(230, 141, 219, .16), transparent 32rem),
+        radial-gradient(ellipse at 100% 10%, rgba(255, 157, 82, .12), transparent 30rem),
+        var(--bg);
       color: var(--text);
     }
     .wrap {
-      max-width: 1200px;
+      max-width: 1360px;
       margin: 0 auto;
-      padding: 40px 18px 64px;
+      padding: 52px 28px 80px;
     }
     .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
       margin-bottom: 24px;
     }
     .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 9px;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-size: 12px;
+      letter-spacing: .16em;
+      font-size: 11px;
       color: var(--accent);
-      margin-bottom: 12px;
+      font-weight: 750;
+      margin-bottom: 13px;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 14px rgba(255, 157, 82, .65);
     }
     h1 {
-      font-size: clamp(2rem, 5vw, 3rem);
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      line-height: 1;
+      letter-spacing: -.055em;
       margin: 0;
     }
+    .header-copy { max-width: 640px; }
+    .subtitle { color: var(--muted); margin: 14px 0 0; font-size: .96rem; }
     .card {
-      background: rgba(18, 27, 42, 0.9);
+      background: linear-gradient(150deg, rgba(31, 27, 37, .96), rgba(20, 17, 25, .96));
       border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.26);
+      border-radius: 20px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
       overflow: hidden;
     }
     .pin-panel {
-      padding: 26px;
-      max-width: 440px;
-      margin: 28px auto 0;
+      padding: 34px;
+      max-width: 460px;
+      margin: 56px auto 0;
     }
+    .pin-panel h2 { margin: 0 0 8px; letter-spacing: -.03em; font-size: 1.45rem; }
+    .pin-panel .pin-hint { color: var(--muted); margin: 0 0 26px; font-size: .9rem; line-height: 1.6; }
     label {
       display: block;
-      font-size: 0.92rem;
+      font-size: .85rem;
       color: var(--muted);
       margin-bottom: 10px;
     }
     input {
       width: 100%;
-      padding: 16px 14px;
-      background: var(--panel-alt);
+      padding: 17px 14px;
+      background: rgba(8, 7, 11, .55);
       border: 1px solid var(--line);
       border-radius: 12px;
       color: var(--text);
       font-size: 1.2rem;
       letter-spacing: 0.28em;
       text-align: center;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus {
+      border-color: rgba(255, 157, 82, .7);
+      box-shadow: 0 0 0 4px rgba(255, 157, 82, .1);
     }
     button {
       display: inline-flex;
-      width: 100%;
       justify-content: center;
       align-items: center;
       border: 0;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color: #08131c;
-      padding: 14px 18px;
-      font-size: 1rem;
+      border-radius: 11px;
+      background: linear-gradient(120deg, #ffad68, #f08e75);
+      color: #24150f;
+      padding: 12px 16px;
+      font-size: .9rem;
       font-weight: 700;
       cursor: pointer;
-      margin-top: 16px;
+      transition: transform .18s, filter .18s, border-color .18s, background .18s;
     }
-    button:hover { filter: brightness(1.03); }
+    #submitPin { width: 100%; margin-top: 16px; padding: 15px 18px; }
+    button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button:focus-visible, tr:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    button:disabled { opacity: .58; cursor: wait; transform: none; }
+    button.secondary, .photo-action {
+      background: rgba(255, 255, 255, .045);
+      border: 1px solid var(--line);
+      color: var(--text);
+    }
     .status {
       min-height: 22px;
       margin-top: 14px;
@@ -100,24 +144,18 @@
 
     .panel-hidden { display: none; }
     .report {
-      padding: 18px;
+      padding: 10px 24px 8px;
     }
     .report-toolbar {
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-bottom: 14px;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 15px 0 19px;
     }
+    .toolbar-actions { display: flex; gap: 9px; }
     .report-toolbar button {
-      width: auto;
-      min-width: 110px;
-      margin-top: 0;
-    }
-    .report-toolbar .secondary {
-      background: var(--panel-alt);
-      border: 1px solid var(--line);
-      color: var(--text);
+      min-height: 42px;
     }
     .report-status {
       flex: 1;
@@ -127,55 +165,163 @@
     }
     .report-status.error { color: var(--danger); }
     .report-status.success { color: var(--accent-2); }
+    .table-wrap { overflow-x: auto; }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.95rem;
+      font-size: .9rem;
+      min-width: 760px;
     }
     thead {
-      background: rgba(116, 208, 255, 0.08);
+      background: rgba(255, 255, 255, .025);
     }
     th, td {
-      padding: 14px 12px;
+      padding: 16px 14px;
       text-align: left;
       border-bottom: 1px solid var(--line);
-      vertical-align: top;
+      vertical-align: middle;
     }
-    th { color: var(--accent); }
-    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    th {
+      color: #b7aabc;
+      font-size: .72rem;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    tbody tr { transition: background .18s; cursor: pointer; }
+    tbody tr:hover { background: rgba(255, 255, 255, .045); }
+    tbody tr:last-child td { border-bottom: 0; }
+    .visit-time { color: var(--text); font-weight: 650; white-space: nowrap; }
+    .ip-value { color: #d9c9df; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .83rem; }
+    .device-name { color: #e3dce6; }
+    .location-value { color: var(--muted); }
     .pill {
-      display: inline-block;
-      padding: 5px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
       border-radius: 999px;
-      background: rgba(140, 242, 200, 0.15);
-      border: 1px solid rgba(140, 242, 200, 0.25);
-      color: var(--accent-2);
-      font-size: 0.75rem;
+      background: rgba(230, 141, 219, .1);
+      border: 1px solid rgba(230, 141, 219, .17);
+      color: #efb8e8;
+      font-size: .75rem;
+      white-space: nowrap;
+    }
+    .photo-action {
+      margin-left: 7px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      font-size: .76rem;
     }
     .empty {
-      padding: 30px 18px;
+      padding: 52px 18px;
       text-align: center;
       color: var(--muted);
     }
+    dialog {
+      width: min(900px, calc(100% - 32px));
+      max-width: 900px;
+      max-height: min(92vh, 900px);
+      padding: 0;
+      overflow: hidden;
+      color: var(--text);
+      background: #17141d;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 22px;
+      box-shadow: 0 32px 100px rgba(0, 0, 0, .65);
+    }
+    dialog::backdrop { background: rgba(5, 4, 8, .78); backdrop-filter: blur(10px); }
+    .gallery-shell { padding: 22px; }
+    .gallery-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 17px;
+    }
+    .gallery-kicker { color: var(--accent); font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; font-weight: 750; }
+    .gallery-header h2 { margin: 6px 0 0; font-size: 1.35rem; letter-spacing: -.035em; }
+    .icon-button {
+      flex: 0 0 auto;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      font-size: 1.3rem;
+    }
+    .gallery-meta { margin: 0 0 14px; color: var(--muted); font-size: .85rem; }
+    .gallery-stage {
+      position: relative;
+      display: grid;
+      min-height: 280px;
+      height: min(58vh, 600px);
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background:
+        radial-gradient(ellipse at center, rgba(230, 141, 219, .08), transparent 60%),
+        #0a090d;
+    }
+    .gallery-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 1;
+      transform: translateX(0) scale(1);
+      transition: opacity .22s ease, transform .3s cubic-bezier(.2, .7, .2, 1);
+    }
+    .gallery-image.is-changing {
+      opacity: .12;
+      transform: translateX(var(--slide-offset, 18px)) scale(.99);
+    }
+    .gallery-empty {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .gallery-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 15px;
+    }
+    .gallery-counter { color: var(--muted); font-size: .84rem; font-variant-numeric: tabular-nums; }
+    .gallery-nav { display: flex; gap: 8px; }
+    .gallery-nav button { width: 46px; height: 42px; padding: 0; font-size: 1.15rem; }
     @media (max-width: 720px) {
-      th, td {
-        padding: 12px 8px;
-      }
-      table {
-        display: block;
-        overflow-x: auto;
-      }
+      .wrap { padding: 30px 14px 48px; }
+      .header { align-items: flex-start; }
+      .report { padding: 8px 14px 6px; }
+      .report-toolbar { align-items: flex-start; flex-wrap: wrap; }
+      .report-status { flex-basis: 100%; }
+      .toolbar-actions { width: 100%; }
+      .toolbar-actions button { flex: 1; }
+      .gallery-shell { padding: 16px; }
+      .gallery-stage { height: 52vh; min-height: 220px; }
+    }
+    @media (max-width: 480px) {
+      .header { display: block; }
+      .subtitle { font-size: .88rem; }
+      .pin-panel { padding: 24px; margin-top: 34px; }
+      .gallery-stage { height: 48vh; }
     }
   </style>
 </head>
 <body>
   <main class="wrap">
     <header class="header">
-      <div class="eyebrow">RetroLens Admin</div>
-      <h1>Monitoring pengunjung</h1>
+      <div class="header-copy">
+        <div class="eyebrow">RetroLens · Private dashboard</div>
+        <h1>Monitoring pengunjung</h1>
+        <p class="subtitle">Ringkasan kunjungan dan foto yang tersimpan dalam satu tempat.</p>
+      </div>
     </header>
 
     <section id="pinCard" class="card pin-panel">
+      <h2>Selamat datang kembali</h2>
+      <p class="pin-hint">Masukkan PIN admin untuk melihat aktivitas pengunjung.</p>
       <label for="pinInput">Masukkan PIN 6 digit</label>
       <input id="pinInput" type="password" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" aria-label="PIN admin">
       <button id="submitPin" type="button">Masuk ke admin</button>
@@ -185,23 +331,51 @@
     <section id="reportCard" class="card report panel-hidden" aria-live="polite">
       <div class="report-toolbar">
         <div id="reportStatus" class="report-status" role="status"></div>
-        <button id="refreshButton" class="secondary" type="button">Refresh data</button>
-        <button id="logoutButton" class="secondary" type="button">Logout</button>
+        <div class="toolbar-actions">
+          <button id="refreshButton" class="secondary" type="button"><span aria-hidden="true">↻</span>&nbsp; Refresh</button>
+          <button id="logoutButton" class="secondary" type="button">Logout</button>
+        </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Waktu</th>
-            <th>IP Address</th>
-            <th>Lokasi</th>
-            <th>Device</th>
-            <th>Foto</th>
-          </tr>
-        </thead>
-        <tbody id="visitRows"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu kunjungan</th>
+              <th>IP address</th>
+              <th>Lokasi</th>
+              <th>Perangkat</th>
+              <th>Foto tersimpan</th>
+            </tr>
+          </thead>
+          <tbody id="visitRows"></tbody>
+        </table>
+      </div>
     </section>
   </main>
+
+  <dialog id="photoDialog" aria-labelledby="galleryTitle">
+    <div class="gallery-shell">
+      <header class="gallery-header">
+        <div>
+          <div class="gallery-kicker">Visit photo gallery</div>
+          <h2 id="galleryTitle">Foto kunjungan</h2>
+        </div>
+        <button id="closeGallery" class="secondary icon-button" type="button" aria-label="Tutup galeri">×</button>
+      </header>
+      <p id="galleryMeta" class="gallery-meta"></p>
+      <div class="gallery-stage">
+        <img id="galleryImage" class="gallery-image" alt="Foto dari kunjungan terpilih" hidden>
+        <p id="galleryEmpty" class="gallery-empty" hidden></p>
+      </div>
+      <footer class="gallery-controls">
+        <span id="galleryCounter" class="gallery-counter"></span>
+        <div class="gallery-nav">
+          <button id="previousPhoto" class="secondary" type="button" aria-label="Foto sebelumnya">‹</button>
+          <button id="nextPhoto" class="secondary" type="button" aria-label="Foto berikutnya">›</button>
+        </div>
+      </footer>
+    </div>
+  </dialog>
 
   <script>
     const pinInput = document.getElementById('pinInput');
@@ -211,6 +385,13 @@
     const visitRows = document.getElementById('visitRows');
     const refreshButton = document.getElementById('refreshButton');
     const reportStatus = document.getElementById('reportStatus');
+    const photoDialog = document.getElementById('photoDialog');
+    const galleryImage = document.getElementById('galleryImage');
+    const galleryEmpty = document.getElementById('galleryEmpty');
+    const galleryMeta = document.getElementById('galleryMeta');
+    const galleryCounter = document.getElementById('galleryCounter');
+    let activePhotos = [];
+    let activePhotoIndex = 0;
 
     function setStatus(message, type) {
       statusEl.textContent = message;
@@ -239,20 +420,113 @@
 
       visitRows.replaceChildren(...visits.map((visit) => {
         const row = document.createElement('tr');
-        [formatDate(visit.visit_time), visit.ip_address, visit.location, visit.device_name]
-          .forEach((value) => {
-            const cell = document.createElement('td');
-            cell.textContent = value || '-';
-            row.appendChild(cell);
-          });
+        const timeCell = document.createElement('td');
+        timeCell.className = 'visit-time';
+        timeCell.textContent = formatDate(visit.visit_time);
+        row.appendChild(timeCell);
+
+        const ipCell = document.createElement('td');
+        ipCell.className = 'ip-value';
+        ipCell.textContent = visit.ip_address || '-';
+        row.appendChild(ipCell);
+
+        const locationCell = document.createElement('td');
+        locationCell.className = 'location-value';
+        locationCell.textContent = visit.location || '-';
+        row.appendChild(locationCell);
+
+        const deviceCell = document.createElement('td');
+        deviceCell.className = 'device-name';
+        deviceCell.textContent = visit.device_name || '-';
+        row.appendChild(deviceCell);
+
         const photoCell = document.createElement('td');
         const badge = document.createElement('span');
         badge.className = 'pill';
         badge.textContent = `${Number(visit.photo_count || 0)} foto`;
         photoCell.appendChild(badge);
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'photo-action';
+        action.textContent = 'Lihat';
+        action.setAttribute('aria-label', `Lihat foto kunjungan ${formatDate(visit.visit_time)}`);
+        action.addEventListener('click', (event) => {
+          event.stopPropagation();
+          openGallery(visit);
+        });
+        photoCell.appendChild(action);
         row.appendChild(photoCell);
+
+        row.tabIndex = 0;
+        row.setAttribute('aria-label', `Buka detail kunjungan ${formatDate(visit.visit_time)}`);
+        row.addEventListener('click', () => openGallery(visit));
+        row.addEventListener('keydown', (event) => {
+          if (event.target !== row) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openGallery(visit);
+          }
+        });
         return row;
       }));
+    }
+
+    function showPhoto(index, direction = 1) {
+      activePhotoIndex = index;
+      const photo = activePhotos[index];
+      if (!photo) return;
+
+      galleryEmpty.hidden = true;
+      galleryImage.hidden = false;
+      galleryImage.style.setProperty('--slide-offset', `${direction < 0 ? '-20px' : '20px'}`);
+      galleryImage.classList.add('is-changing');
+      galleryImage.onload = () => {
+        galleryEmpty.hidden = true;
+        requestAnimationFrame(() => galleryImage.classList.remove('is-changing'));
+      };
+      galleryImage.onerror = () => {
+        galleryImage.hidden = true;
+        galleryEmpty.textContent = 'Foto gagal dimuat. Periksa akses Cloudinary atau coba refresh data.';
+        galleryEmpty.hidden = false;
+        galleryImage.classList.remove('is-changing');
+      };
+      galleryImage.src = photo.url;
+      galleryCounter.textContent = `${index + 1} / ${activePhotos.length}`;
+      galleryMeta.textContent = photo.captured_at
+        ? `Diambil ${formatDate(photo.captured_at)}`
+        : 'Waktu foto tidak tersedia';
+      document.getElementById('previousPhoto').disabled = activePhotos.length < 2;
+      document.getElementById('nextPhoto').disabled = activePhotos.length < 2;
+    }
+
+    function openGallery(visit) {
+      activePhotos = Array.isArray(visit.photos)
+        ? visit.photos.filter((photo) => photo && typeof photo.url === 'string' && photo.url.startsWith('https://res.cloudinary.com/'))
+        : [];
+      galleryImage.onload = null;
+      galleryImage.onerror = null;
+      galleryImage.removeAttribute('src');
+      galleryImage.hidden = true;
+      galleryMeta.textContent = `${visit.device_name || 'Perangkat tidak diketahui'} · ${visit.location || 'Lokasi tidak diketahui'}`;
+
+      if (activePhotos.length) {
+        activePhotoIndex = -1;
+        showPhoto(0);
+      } else {
+        galleryCounter.textContent = '0 foto';
+        galleryEmpty.textContent = 'Belum ada foto yang tersimpan untuk kunjungan ini.';
+        galleryEmpty.hidden = false;
+        document.getElementById('previousPhoto').disabled = true;
+        document.getElementById('nextPhoto').disabled = true;
+      }
+
+      if (!photoDialog.open) photoDialog.showModal();
+    }
+
+    function movePhoto(direction) {
+      if (!activePhotos.length) return;
+      const nextIndex = (activePhotoIndex + direction + activePhotos.length) % activePhotos.length;
+      showPhoto(nextIndex, direction);
     }
 
     async function fetchVisits(action, pin) {
@@ -331,6 +605,16 @@
     });
 
     refreshButton.addEventListener('click', refreshVisits);
+    document.getElementById('closeGallery').addEventListener('click', () => photoDialog.close());
+    document.getElementById('previousPhoto').addEventListener('click', () => movePhoto(-1));
+    document.getElementById('nextPhoto').addEventListener('click', () => movePhoto(1));
+    photoDialog.addEventListener('click', (event) => {
+      if (event.target === photoDialog) photoDialog.close();
+    });
+    photoDialog.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') movePhoto(-1);
+      if (event.key === 'ArrowRight') movePhoto(1);
+    });
 
     document.getElementById('logoutButton').addEventListener('click', () => {
       sessionStorage.removeItem('retrolens_admin_session');
