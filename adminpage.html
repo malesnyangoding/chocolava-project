@@ -102,6 +102,31 @@
     .report {
       padding: 18px;
     }
+    .report-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .report-toolbar button {
+      width: auto;
+      min-width: 110px;
+      margin-top: 0;
+    }
+    .report-toolbar .secondary {
+      background: var(--panel-alt);
+      border: 1px solid var(--line);
+      color: var(--text);
+    }
+    .report-status {
+      flex: 1;
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .report-status.error { color: var(--danger); }
+    .report-status.success { color: var(--accent-2); }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -158,6 +183,11 @@
     </section>
 
     <section id="reportCard" class="card report panel-hidden" aria-live="polite">
+      <div class="report-toolbar">
+        <div id="reportStatus" class="report-status" role="status"></div>
+        <button id="refreshButton" class="secondary" type="button">Refresh data</button>
+        <button id="logoutButton" class="secondary" type="button">Logout</button>
+      </div>
       <table>
         <thead>
           <tr>
@@ -179,11 +209,16 @@
     const pinCard = document.getElementById('pinCard');
     const reportCard = document.getElementById('reportCard');
     const visitRows = document.getElementById('visitRows');
+    const refreshButton = document.getElementById('refreshButton');
+    const reportStatus = document.getElementById('reportStatus');
 
     function setStatus(message, type) {
       statusEl.textContent = message;
       statusEl.className = 'status';
       if (type) statusEl.classList.add(type);
+      reportStatus.textContent = message;
+      reportStatus.className = 'report-status';
+      if (type) reportStatus.classList.add(type);
     }
 
     function formatDate(timestamp) {
@@ -202,22 +237,33 @@
         return;
       }
 
-      visitRows.innerHTML = visits.map((visit) => `
-        <tr>
-          <td>${formatDate(visit.visit_time)}</td>
-          <td>${visit.ip_address || '-'}</td>
-          <td>${visit.location || '-'}</td>
-          <td>${visit.device_name || '-'}</td>
-          <td><span class="pill">${Number(visit.photo_count || 0)} foto</span></td>
-        </tr>
-      `).join('');
+      visitRows.replaceChildren(...visits.map((visit) => {
+        const row = document.createElement('tr');
+        [formatDate(visit.visit_time), visit.ip_address, visit.location, visit.device_name]
+          .forEach((value) => {
+            const cell = document.createElement('td');
+            cell.textContent = value || '-';
+            row.appendChild(cell);
+          });
+        const photoCell = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = 'pill';
+        badge.textContent = `${Number(visit.photo_count || 0)} foto`;
+        photoCell.appendChild(badge);
+        row.appendChild(photoCell);
+        return row;
+      }));
     }
 
-    async function fetchVisits(pin) {
+    async function fetchVisits(action, pin) {
+      const sessionToken = sessionStorage.getItem('retrolens_admin_session');
       const response = await fetch('/api/admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, action: 'list' }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({ action, ...(pin ? { pin } : {}) }),
       });
 
       const data = await response.json();
@@ -225,9 +271,30 @@
         throw new Error(data.message || 'PIN tidak valid.');
       }
 
+      if (data.sessionToken) {
+        sessionStorage.setItem('retrolens_admin_session', data.sessionToken);
+      }
       renderTable(data.visits || []);
       pinCard.classList.add('panel-hidden');
       reportCard.classList.remove('panel-hidden');
+    }
+
+    async function refreshVisits() {
+      refreshButton.disabled = true;
+      setStatus('Memuat data terbaru...', '');
+      try {
+        await fetchVisits('list');
+        setStatus('Data berhasil diperbarui.', 'success');
+      } catch (error) {
+        setStatus(error.message || 'Gagal memperbarui data.', 'error');
+        if (error.message && error.message.includes('PIN')) {
+          sessionStorage.removeItem('retrolens_admin_session');
+          reportCard.classList.add('panel-hidden');
+          pinCard.classList.remove('panel-hidden');
+        }
+      } finally {
+        refreshButton.disabled = false;
+      }
     }
 
     document.getElementById('submitPin').addEventListener('click', async () => {
@@ -242,7 +309,8 @@
         const response = await fetch('/api/admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin, action: 'verify' }),
+          credentials: 'same-origin',
+          body: JSON.stringify({ pin, action: 'login' }),
         });
 
         const data = await response.json();
@@ -250,12 +318,29 @@
           throw new Error(data.message || 'PIN tidak valid.');
         }
 
-        await fetchVisits(pin);
+        if (data.sessionToken) {
+          sessionStorage.setItem('retrolens_admin_session', data.sessionToken);
+        }
+        renderTable(data.visits || []);
+        pinCard.classList.add('panel-hidden');
+        reportCard.classList.remove('panel-hidden');
         setStatus('Akses admin berhasil dibuka.', 'success');
       } catch (error) {
         setStatus(error.message || 'PIN tidak valid.', 'error');
       }
     });
+
+    refreshButton.addEventListener('click', refreshVisits);
+
+    document.getElementById('logoutButton').addEventListener('click', () => {
+      sessionStorage.removeItem('retrolens_admin_session');
+      reportCard.classList.add('panel-hidden');
+      pinCard.classList.remove('panel-hidden');
+      pinInput.value = '';
+      setStatus('Kamu sudah logout.', '');
+    });
+
+    fetchVisits('list').catch(() => {});
 
     pinInput.addEventListener('input', () => {
       pinInput.value = pinInput.value.replace(/\D/g, '').slice(0, 6);
