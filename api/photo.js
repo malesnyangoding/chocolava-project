@@ -30,30 +30,77 @@ export default async function handler(req, res) {
 
     await ensureSchema(sql);
 
-    const existing = await sql`
-      SELECT COUNT(*)::int AS total FROM visit_photos WHERE visit_id = ${visitId};
-    `;
-
-    if ((existing?.[0]?.total || 0) >= 5) {
-      return res.status(409).json({ ok: false, message: 'Maximum 5 photos per visit reached.' });
-    }
-
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
       return res.status(500).json({ ok: false, message: 'Cloudinary credentials are not configured.' });
     }
 
-    const uploadResult = await cloudinary.uploader.upload(imageDataUrl, {
-      folder: 'retrolens/visits',
-      resource_type: 'image',
-      transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+    const upload = await sql.begin(async (tx) => {
+      const [visit] = await tx`
+        SELECT id, ip_address, user_agent
+        FROM visits
+        WHERE id = ${visitId};
+      `;
+
+      if (!visit) {
+        return { error: 'Visit not found.', status: 404 };
+      }
+
+      const visitorKey = JSON.stringify([visit.ip_address, visit.user_agent]);
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${visitorKey}, 0));`;
+
+      const [lockedVisit] = await tx`
+        SELECT id
+        FROM visits
+        WHERE id = ${visitId}
+        FOR UPDATE;
+      `;
+      if (!lockedVisit) {
+        return { error: 'Visit not found.', status: 404 };
+      }
+
+      const [quota] = await tx`
+        SELECT
+          COUNT(*)::int AS total,
+          MAX(vp.captured_at) AS last_photo_at
+        FROM visit_photos vp
+        JOIN visits v ON v.id = vp.visit_id
+        WHERE v.ip_address IS NOT DISTINCT FROM ${visit.ip_address}
+          AND v.user_agent IS NOT DISTINCT FROM ${visit.user_agent}
+          AND vp.captured_at >= NOW() - INTERVAL '24 hours';
+      `;
+
+      if (quota.total >= 5) {
+        const availableAt = new Date(new Date(quota.last_photo_at).getTime() + 24 * 60 * 60 * 1000);
+        return {
+          error: 'Batas 5 foto dalam 24 jam untuk IP dan perangkat ini sudah tercapai.',
+          status: 429,
+          availableAt: availableAt.toISOString(),
+        };
+      }
+
+      const uploadResult = await cloudinary.uploader.upload(imageDataUrl, {
+        folder: 'retrolens/visits',
+        resource_type: 'image',
+        transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+      });
+      const photoUrl = uploadResult.secure_url || uploadResult.url;
+
+      await tx`
+        INSERT INTO visit_photos (visit_id, photo_url, cloudinary_public_id, source)
+        VALUES (${visitId}, ${photoUrl}, ${uploadResult.public_id}, 'camera');
+      `;
+      return { url: photoUrl };
     });
 
-    await sql`
-      INSERT INTO visit_photos (visit_id, photo_url, source)
-      VALUES (${visitId}, ${uploadResult.secure_url || uploadResult.url}, 'camera');
-    `;
+    if (upload.error) {
+      return res.status(upload.status).json({
+        ok: false,
+        message: upload.error,
+        ...(upload.availableAt ? { availableAt: upload.availableAt } : {}),
+      });
+    }
 
-    return res.status(200).json({ ok: true, url: uploadResult.secure_url || uploadResult.url });
+    return res.status(200).json({ ok: true, url: upload.url });
   } catch (error) {
     console.error('photo upload error', error);
     if (error instanceof SyntaxError) {
