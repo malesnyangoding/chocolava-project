@@ -12,19 +12,22 @@ export default async function handler(req, res) {
     return;
   }
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-  const { visitId, imageDataUrl } = body;
-
-  if (!visitId || !imageDataUrl) {
-    return res.status(400).json({ ok: false, message: 'visitId and imageDataUrl are required.' });
-  }
-
-  const sql = getSql();
-  if (!sql) {
-    return res.status(500).json({ ok: false, message: 'NEON_DATABASE_URL is not configured.' });
-  }
-
   try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const { visitId, imageDataUrl } = body;
+
+    if (!visitId || !imageDataUrl) {
+      return res.status(400).json({ ok: false, message: 'visitId and imageDataUrl are required.' });
+    }
+    if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(imageDataUrl)) {
+      return res.status(400).json({ ok: false, message: 'imageDataUrl must be a base64 JPEG data URL.' });
+    }
+
+    const sql = getSql();
+    if (!sql) {
+      return res.status(500).json({ ok: false, message: 'NEON_DATABASE_URL is not configured.' });
+    }
+
     await ensureSchema(sql);
 
     const existing = await sql`
@@ -53,6 +56,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, url: uploadResult.secure_url || uploadResult.url });
   } catch (error) {
     console.error('photo upload error', error);
-    return res.status(500).json({ ok: false, message: 'Failed to save photo.' });
+    if (error instanceof SyntaxError) {
+      return res.status(400).json({ ok: false, message: 'Invalid request body.' });
+    }
+    return res.status(500).json({
+      ok: false,
+      message: error instanceof Error ? `Failed to save photo: ${error.message}` : 'Failed to save photo.',
+    });
   }
 }
