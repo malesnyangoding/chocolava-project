@@ -213,6 +213,16 @@
       border-radius: 8px;
       font-size: .76rem;
     }
+    .row-actions { display: flex; align-items: center; gap: 7px; }
+    .list-delete {
+      padding: 7px 9px;
+      border: 1px solid rgba(255, 130, 140, .22);
+      border-radius: 8px;
+      background: rgba(255, 130, 140, .07);
+      color: #ff9aa3;
+      font-size: .76rem;
+    }
+    .list-delete:hover, .photo-remove:hover { background: rgba(255, 100, 115, .2); }
     .empty {
       padding: 52px 18px;
       text-align: center;
@@ -262,6 +272,23 @@
         radial-gradient(ellipse at center, rgba(230, 141, 219, .08), transparent 60%),
         #0a090d;
     }
+    .photo-remove {
+      position: absolute;
+      z-index: 1;
+      top: 14px;
+      right: 14px;
+      opacity: 0;
+      display: inline-flex;
+      transform: translateY(-4px);
+      border: 1px solid rgba(255, 130, 140, .4);
+      background: rgba(30, 12, 18, .82);
+      color: #ffabb1;
+      backdrop-filter: blur(8px);
+      transition: opacity .18s, transform .18s, background .18s;
+    }
+    .photo-remove[hidden] { display: none; }
+    .gallery-stage:hover .photo-remove,
+    .photo-remove:focus-visible { opacity: 1; transform: translateY(0); }
     .gallery-image {
       width: 100%;
       height: 100%;
@@ -300,6 +327,7 @@
       .toolbar-actions button { flex: 1; }
       .gallery-shell { padding: 16px; }
       .gallery-stage { height: 52vh; min-height: 220px; }
+      .photo-remove:not([hidden]) { opacity: 1; transform: none; }
     }
     @media (max-width: 480px) {
       .header { display: block; }
@@ -344,7 +372,7 @@
               <th>IP address</th>
               <th>Lokasi</th>
               <th>Perangkat</th>
-              <th>Foto tersimpan</th>
+              <th>Foto / tindakan</th>
             </tr>
           </thead>
           <tbody id="visitRows"></tbody>
@@ -366,6 +394,7 @@
       <div class="gallery-stage">
         <img id="galleryImage" class="gallery-image" alt="Foto dari kunjungan terpilih" hidden>
         <p id="galleryEmpty" class="gallery-empty" hidden></p>
+        <button id="removePhotoButton" class="photo-remove" type="button" hidden>Hapus foto</button>
       </div>
       <footer class="gallery-controls">
         <span id="galleryCounter" class="gallery-counter"></span>
@@ -392,6 +421,8 @@
     const galleryCounter = document.getElementById('galleryCounter');
     let activePhotos = [];
     let activePhotoIndex = 0;
+    let activeVisit = null;
+    let currentVisits = [];
 
     function setStatus(message, type) {
       statusEl.textContent = message;
@@ -413,6 +444,7 @@
     }
 
     function renderTable(visits) {
+      currentVisits = visits || [];
       if (!visits || !visits.length) {
         visitRows.innerHTML = '<tr><td colspan="5" class="empty">Belum ada data kunjungan.</td></tr>';
         return;
@@ -445,6 +477,8 @@
         badge.className = 'pill';
         badge.textContent = `${Number(visit.photo_count || 0)} foto`;
         photoCell.appendChild(badge);
+        const actions = document.createElement('div');
+        actions.className = 'row-actions';
         const action = document.createElement('button');
         action.type = 'button';
         action.className = 'photo-action';
@@ -454,7 +488,17 @@
           event.stopPropagation();
           openGallery(visit);
         });
-        photoCell.appendChild(action);
+        const removeVisit = document.createElement('button');
+        removeVisit.type = 'button';
+        removeVisit.className = 'list-delete';
+        removeVisit.textContent = 'Hapus';
+        removeVisit.setAttribute('aria-label', `Hapus kunjungan ${formatDate(visit.visit_time)} beserta foto`);
+        removeVisit.addEventListener('click', (event) => {
+          event.stopPropagation();
+          deleteVisit(visit);
+        });
+        actions.append(action, removeVisit);
+        photoCell.appendChild(actions);
         row.appendChild(photoCell);
 
         row.tabIndex = 0;
@@ -478,6 +522,7 @@
 
       galleryEmpty.hidden = true;
       galleryImage.hidden = false;
+      document.getElementById('removePhotoButton').hidden = false;
       galleryImage.style.setProperty('--slide-offset', `${direction < 0 ? '-20px' : '20px'}`);
       galleryImage.classList.add('is-changing');
       galleryImage.onload = () => {
@@ -500,13 +545,15 @@
     }
 
     function openGallery(visit) {
+      activeVisit = visit;
       activePhotos = Array.isArray(visit.photos)
-        ? visit.photos.filter((photo) => photo && typeof photo.url === 'string' && photo.url.startsWith('https://res.cloudinary.com/'))
+        ? visit.photos.filter((photo) => photo && typeof photo.id === 'string' && typeof photo.url === 'string' && photo.url.startsWith('https://res.cloudinary.com/'))
         : [];
       galleryImage.onload = null;
       galleryImage.onerror = null;
       galleryImage.removeAttribute('src');
       galleryImage.hidden = true;
+      document.getElementById('removePhotoButton').hidden = true;
       galleryMeta.textContent = `${visit.device_name || 'Perangkat tidak diketahui'} · ${visit.location || 'Lokasi tidak diketahui'}`;
 
       if (activePhotos.length) {
@@ -516,6 +563,7 @@
         galleryCounter.textContent = '0 foto';
         galleryEmpty.textContent = 'Belum ada foto yang tersimpan untuk kunjungan ini.';
         galleryEmpty.hidden = false;
+        document.getElementById('removePhotoButton').hidden = true;
         document.getElementById('previousPhoto').disabled = true;
         document.getElementById('nextPhoto').disabled = true;
       }
@@ -551,6 +599,85 @@
       renderTable(data.visits || []);
       pinCard.classList.add('panel-hidden');
       reportCard.classList.remove('panel-hidden');
+    }
+
+    async function adminAction(action, payload) {
+      const sessionToken = sessionStorage.getItem('retrolens_admin_session');
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        const details = Array.isArray(data.details) ? ` ${data.details.join(' ')}` : '';
+        throw new Error(`${data.message || `Request gagal (HTTP ${response.status}).`}${details}`);
+      }
+      return data;
+    }
+
+    async function deleteVisit(visit) {
+      const confirmed = window.confirm(
+        `Hapus kunjungan ${formatDate(visit.visit_time)} beserta semua foto untuk IP/perangkat ini? Penghapusan Cloudinary dan database tidak dapat dibatalkan.`
+      );
+      if (!confirmed) return;
+
+      setStatus('Menghapus kunjungan dan foto terkait...', '');
+      try {
+        const result = await adminAction('delete-visit', { visitId: visit.id });
+        currentVisits = currentVisits.filter((entry) => entry.id !== visit.id);
+        renderTable(currentVisits);
+        if (activeVisit?.id === visit.id && photoDialog.open) photoDialog.close();
+        setStatus(`Kunjungan dihapus (${result.deletedVisitCount} entri, ${result.deletedPhotoCount} foto).`, 'success');
+      } catch (error) {
+        console.error('Visit deletion failed:', error);
+        setStatus(error.message || 'Gagal menghapus kunjungan.', 'error');
+      }
+    }
+
+    async function deleteCurrentPhoto() {
+      const photo = activePhotos[activePhotoIndex];
+      if (!photo || !activeVisit) return;
+      if (!window.confirm('Hapus foto ini dari Cloudinary dan database? Tindakan ini tidak dapat dibatalkan.')) return;
+
+      const removeButton = document.getElementById('removePhotoButton');
+      removeButton.disabled = true;
+      galleryMeta.textContent = 'Menghapus foto...';
+      try {
+        await adminAction('delete-photo', { photoId: photo.id });
+        activePhotos = activePhotos.filter((entry) => entry.id !== photo.id);
+        for (const visit of currentVisits) {
+          if (!Array.isArray(visit.photos)) continue;
+          visit.photos = visit.photos.filter((entry) => entry.id !== photo.id);
+          visit.photo_count = visit.photos.length;
+        }
+        activeVisit = currentVisits.find((visit) => visit.id === activeVisit.id) || activeVisit;
+        renderTable(currentVisits);
+
+        if (activePhotos.length) {
+          showPhoto(Math.min(activePhotoIndex, activePhotos.length - 1), -1);
+        } else {
+          galleryImage.hidden = true;
+          galleryImage.removeAttribute('src');
+          galleryEmpty.textContent = 'Semua foto untuk kunjungan ini sudah dihapus.';
+          galleryEmpty.hidden = false;
+          galleryCounter.textContent = '0 foto';
+          galleryMeta.textContent = 'Tidak ada foto tersisa';
+          removeButton.hidden = true;
+          document.getElementById('previousPhoto').disabled = true;
+          document.getElementById('nextPhoto').disabled = true;
+        }
+        setStatus('Foto berhasil dihapus dari Cloudinary dan database.', 'success');
+      } catch (error) {
+        console.error('Photo deletion failed:', error);
+        galleryMeta.textContent = error.message || 'Gagal menghapus foto.';
+        setStatus(error.message || 'Gagal menghapus foto.', 'error');
+      } finally {
+        removeButton.disabled = false;
+      }
     }
 
     async function refreshVisits() {
@@ -608,6 +735,7 @@
     document.getElementById('closeGallery').addEventListener('click', () => photoDialog.close());
     document.getElementById('previousPhoto').addEventListener('click', () => movePhoto(-1));
     document.getElementById('nextPhoto').addEventListener('click', () => movePhoto(1));
+    document.getElementById('removePhotoButton').addEventListener('click', deleteCurrentPhoto);
     photoDialog.addEventListener('click', (event) => {
       if (event.target === photoDialog) photoDialog.close();
     });
