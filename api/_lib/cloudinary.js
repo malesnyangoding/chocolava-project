@@ -14,3 +14,18 @@ if (cloudName && apiKey && apiSecret) {
 }
 
 export { cloudinary };
+
+export async function deleteCloudinaryImage(publicId) {
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Cloudinary credentials are not configured.');
+  }
+
+  const result = await cloudinary.uploader.destroy(publicId, {
+    resource_type: 'image',
+    invalidate: true,
+  });
+
+  if (result.result !== 'ok' && result.result !== 'deleted' && result.result !== 'not found') {
+    throw new Error(`Cloudinary deletion was not confirmed (result: ${result.result || 'unknown'}).`);
+  }
+}
