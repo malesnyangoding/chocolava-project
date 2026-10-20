@@ -39,7 +39,14 @@ async function sendVisits(sql, res, sessionToken) {
       v.device_name,
       v.page,
       v.visit_time,
-      COUNT(vp.id)::int AS photo_count
+      COUNT(vp.id)::int AS photo_count,
+      COALESCE(
+        json_agg(
+          json_build_object('url', vp.photo_url, 'captured_at', vp.captured_at)
+          ORDER BY vp.captured_at
+        ) FILTER (WHERE vp.id IS NOT NULL),
+        '[]'::json
+      ) AS photos
     FROM visits v
     LEFT JOIN visit_photos vp ON vp.visit_id = v.id
     GROUP BY v.id, v.ip_address, v.location, v.device_name, v.page, v.visit_time
@@ -53,6 +60,7 @@ async function sendVisits(sql, res, sessionToken) {
     visits: rows.map((row) => ({
       ...row,
       visit_time: row.visit_time ? new Date(row.visit_time).toISOString() : null,
+      photos: Array.isArray(row.photos) ? row.photos : [],
     })),
   });
 }
